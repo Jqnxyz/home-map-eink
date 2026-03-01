@@ -25,21 +25,34 @@ def _ensure_ready():
 def _make_snapshot(people):
     if people is None:
         return None
-    result = []
+    result = {}
     for p in people:
-        result.append((p.get("name", "?"), p.get("floor"), p.get("zone")))
-    result.sort()
-    return tuple(result)
+        name = p.get("name", "?")
+        result[name] = (p.get("floor"), p.get("zone"))
+    return result
+
+
+def _find_moved(old_snap, new_snap):
+    """Return set of names whose floor/zone changed since last refresh."""
+    if old_snap is None:
+        return set()
+    moved = set()
+    for name, pos in new_snap.items():
+        old_pos = old_snap.get(name)
+        if old_pos is not None and old_pos != pos:
+            moved.add(name)
+    return moved
 
 
 def update(people, error=None):
     global _last_snapshot
     snap = _make_snapshot(people)
-    if snap == _last_snapshot:
+    if snap is not None and snap == _last_snapshot:
         return False
+    moved = _find_moved(_last_snapshot, snap) if snap else set()
     _last_snapshot = snap
     _ensure_ready()
-    renderer.render(_epd.fb_black, _epd.fb_red, people, error)
+    renderer.render(_epd.fb_black, _epd.fb_red, people, error, moved)
     _epd.display()
     return True
 
