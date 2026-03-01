@@ -1,6 +1,9 @@
 # Sensitive local config — copy config.example.py → config.py and fill in values
 config.py
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # macOS metadata
 .DS_Store
 
