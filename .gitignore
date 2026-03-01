@@ -1,0 +1,9 @@
+# Sensitive local config — copy config.example.py → config.py and fill in values
+config.py
+
+# macOS metadata
+.DS_Store
+
+# Python cache (if testing on desktop)
+__pycache__/
+*.pyc
