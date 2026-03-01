@@ -1,24 +1,33 @@
-import gc
+import sys
 import utime
-import config
+from machine import Pin, SPI
 
+# Early SPI1 init — required on Pico 2W cold boot before WiFi
+# touches the CYW43 chip, otherwise SPI1 pin mux breaks
+utime.sleep(1)
+spi = SPI(1)
+spi.init(baudrate=4_000_000)
+rst = Pin(12, Pin.OUT)
+busy = Pin(13, Pin.IN, Pin.PULL_UP)
+rst.value(1); utime.sleep_ms(50)
+rst.value(0); utime.sleep_ms(2)
+rst.value(1); utime.sleep_ms(50)
+spi.deinit()
+del spi, rst, busy
 
-def main():
-    utime.sleep(1)
-
-    # Init display BEFORE WiFi — SPI must be set up first
+try:
+    import gc
+    import config
     import display
-    display.show_message("Starting...")
-
     import wifi
-    print("Connecting to WiFi...")
+
     if not wifi.connect(config.WIFI_SSID, config.WIFI_PASSWORD):
         display.show_message("No WiFi", "Check credentials")
         utime.sleep(10)
         import machine
         machine.reset()
 
-    print("WiFi connected, fetching data...")
+    print("WiFi connected")
     import api
 
     while True:
@@ -31,8 +40,6 @@ def main():
         people, result = api.fetch_presence(config.API_URL, config.STALE_TIMEOUT_S)
 
         if people is not None:
-            for p in people:
-                print(p.get("name"), "->", p.get("floor"), "|", p.get("zone"))
             if display.update(people):
                 print("Display refreshed")
             else:
@@ -44,5 +51,6 @@ def main():
         gc.collect()
         utime.sleep(config.POLL_INTERVAL_S)
 
-
-main()
+except Exception as e:
+    sys.print_exception(e)
+    utime.sleep(60)
