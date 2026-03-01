@@ -27,7 +27,6 @@ class EPD:
         self.width = self.epd_h   # 250
         self.height = self.epd_w  # 128
 
-        # Use SPI1 with default pins (SCK=GP10, MOSI=GP11)
         self.spi = SPI(1)
         self.spi.init(baudrate=4_000_000)
 
