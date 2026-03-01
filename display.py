@@ -4,12 +4,12 @@ import renderer
 
 
 _epd = None
-_awake = False
+_inited = False
 _last_snapshot = None
 
 
-def _ensure_awake():
-    global _epd, _awake
+def _ensure_ready():
+    global _epd, _inited
     if _epd is None:
         _epd = EPD(
             rst=config.RST_PIN,
@@ -17,13 +17,12 @@ def _ensure_awake():
             cs=config.CS_PIN,
             busy=config.BUSY_PIN,
         )
-    if not _awake:
+    if not _inited:
         _epd.init()
-        _awake = True
+        _inited = True
 
 
 def _make_snapshot(people):
-    """Create a comparable snapshot of the presence data."""
     if people is None:
         return None
     result = []
@@ -34,30 +33,21 @@ def _make_snapshot(people):
 
 
 def update(people, error=None):
-    """Render and display presence data only if changed. Returns True if refreshed."""
     global _last_snapshot
     snap = _make_snapshot(people)
     if snap == _last_snapshot:
         return False
     _last_snapshot = snap
-    _ensure_awake()
+    _ensure_ready()
     renderer.render(_epd.fb_black, _epd.fb_red, people, error)
     _epd.display()
-    sleep()
     return True
-
-
-def sleep():
-    global _awake
-    if _epd and _awake:
-        _epd.sleep()
-        _awake = False
 
 
 def show_message(line1, line2=""):
     global _last_snapshot
     _last_snapshot = None
-    _ensure_awake()
+    _ensure_ready()
     _epd.fb_black.fill(0xFF)
     _epd.fb_red.fill(0xFF)
     import font5x8 as font
@@ -65,4 +55,3 @@ def show_message(line1, line2=""):
     if line2:
         font.draw_text(_epd.fb_black, 10, 56, line2)
     _epd.display()
-    sleep()
