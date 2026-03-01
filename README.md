@@ -1,4 +1,4 @@
-# unifi-eink
+# home-map-eink
 
 Raspberry Pi Pico 2W + Waveshare 2.13" e-ink display showing family
 presence/location from a home API. People who change floors since the
