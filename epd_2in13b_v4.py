@@ -13,7 +13,7 @@ EPD_HEIGHT = 250
 class EPD:
     """Landscape-mode driver for Waveshare 2.13" B V4 (250x122, black/white/red)."""
 
-    def __init__(self, rst=12, dc=8, cs=9, busy=13, clk=10, din=11):
+    def __init__(self, rst=12, dc=8, cs=9, busy=13):
         self.reset_pin = Pin(rst, Pin.OUT)
         self.busy_pin = Pin(busy, Pin.IN, Pin.PULL_UP)
         self.cs_pin = Pin(cs, Pin.OUT)
@@ -27,7 +27,9 @@ class EPD:
         self.width = self.epd_h   # 250
         self.height = self.epd_w  # 128
 
-        self.spi = SPI(1, baudrate=4_000_000, sck=Pin(clk), mosi=Pin(din))
+        # Use SPI1 with default pins (SCK=GP10, MOSI=GP11)
+        self.spi = SPI(1)
+        self.spi.init(baudrate=4_000_000)
 
         # Framebuffers: landscape MONO_VLSB
         buf_size = self.epd_h * self.epd_w // 8  # 4000
@@ -51,7 +53,7 @@ class EPD:
     def _write_data_buf(self, buf):
         self.dc_pin.value(1)
         self.cs_pin.value(0)
-        self.spi.write(buf)
+        self.spi.write(bytearray(buf))
         self.cs_pin.value(1)
 
     def _wait_busy(self):
@@ -113,17 +115,23 @@ class EPD:
 
         self._wait_busy()
 
+    def _reorder_landscape(self, buf):
+        """Reorder MONO_VLSB framebuffer bytes for landscape display."""
+        out = bytearray(self.epd_h * self.epd_w // 8)
+        idx = 0
+        for j in range(self.epd_w // 8 - 1, -1, -1):
+            for i in range(self.epd_h):
+                out[idx] = buf[i + j * self.epd_h]
+                idx += 1
+        return out
+
     def display(self):
         """Send framebuffers to display with landscape byte reordering."""
         self._write_cmd(0x24)
-        for j in range(self.epd_w // 8 - 1, -1, -1):
-            for i in range(self.epd_h):
-                self._write_data(self.buf_black[i + j * self.epd_h])
+        self._write_data_buf(self._reorder_landscape(self.buf_black))
 
         self._write_cmd(0x26)
-        for j in range(self.epd_w // 8 - 1, -1, -1):
-            for i in range(self.epd_h):
-                self._write_data(self.buf_red[i + j * self.epd_h])
+        self._write_data_buf(self._reorder_landscape(self.buf_red))
 
         self._write_cmd(0x20)  # Activate display update
         self._wait_busy()
