@@ -5,10 +5,10 @@ import renderer
 
 _epd = None
 _awake = False
+_last_snapshot = None
 
 
 def _ensure_awake():
-    """Init the display if it's asleep or not yet created."""
     global _epd, _awake
     if _epd is None:
         _epd = EPD(
@@ -22,16 +22,32 @@ def _ensure_awake():
         _awake = True
 
 
-def update(people, generated_at, error=None):
-    """Render and display presence data, then sleep the display."""
+def _make_snapshot(people):
+    """Create a comparable snapshot of the presence data."""
+    if people is None:
+        return None
+    result = []
+    for p in people:
+        result.append((p.get("name", "?"), p.get("floor"), p.get("zone")))
+    result.sort()
+    return tuple(result)
+
+
+def update(people, error=None):
+    """Render and display presence data only if changed. Returns True if refreshed."""
+    global _last_snapshot
+    snap = _make_snapshot(people)
+    if snap == _last_snapshot:
+        return False
+    _last_snapshot = snap
     _ensure_awake()
-    renderer.render(_epd.fb_black, _epd.fb_red, people, generated_at, error)
+    renderer.render(_epd.fb_black, _epd.fb_red, people, error)
     _epd.display()
     sleep()
+    return True
 
 
 def sleep():
-    """Put the display into low-power sleep."""
     global _awake
     if _epd and _awake:
         _epd.sleep()
@@ -39,12 +55,14 @@ def sleep():
 
 
 def show_message(line1, line2=""):
-    """Show a simple status message, then sleep the display."""
+    global _last_snapshot
+    _last_snapshot = None
     _ensure_awake()
     _epd.fb_black.fill(0xFF)
     _epd.fb_red.fill(0xFF)
-    _epd.fb_black.text(line1, 10, 40, 0x00)
+    import font5x8 as font
+    font.draw_text(_epd.fb_black, 10, 40, line1)
     if line2:
-        _epd.fb_black.text(line2, 10, 56, 0x00)
+        font.draw_text(_epd.fb_black, 10, 56, line2)
     _epd.display()
     sleep()
