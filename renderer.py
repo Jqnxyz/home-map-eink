@@ -6,12 +6,13 @@ SCREEN_W = 250
 SCREEN_H = 122
 Y_OFFSET = 6  # framebuffer is 128px tall, display is 122px
 FLOOR_COL_W = 58
-NAME_COL_X = FLOOR_COL_W + 3
+SEP_PAD = 4
+NAME_COL_X = FLOOR_COL_W + SEP_PAD + 1 + SEP_PAD  # pad + vline + pad
 NAME_COL_W = SCREEN_W - NAME_COL_X - 2
 MAX_NAME_CHARS = NAME_COL_W // font.CHAR_W
 
 
-def render(fb_black, fb_red, people, error=None):
+def render(fb_black, fb_red, people, error=None, moved=None):
     fb_black.fill(0xFF)
     fb_red.fill(0xFF)
 
@@ -21,7 +22,7 @@ def render(fb_black, fb_red, people, error=None):
         font.draw_text(fb_red, 0, y0 + 10, error[:40])
         return
 
-    floor_people = _group_by_floor(people or [])
+    floor_people = _group_by_floor(people or [], moved or set())
 
     row_h = SCREEN_H // len(config.FLOORS)
 
@@ -33,7 +34,7 @@ def render(fb_black, fb_red, people, error=None):
         font.draw_text(fb_black, 2, text_y, floor)
 
         # Vertical divider
-        fb_black.vline(FLOOR_COL_W, y, row_h, 0x00)
+        fb_black.vline(FLOOR_COL_W + SEP_PAD, y, row_h, 0x00)
 
         # Names
         names = floor_people.get(floor, [])
@@ -41,7 +42,7 @@ def render(fb_black, fb_red, people, error=None):
             _draw_names(fb_black, fb_red, names, NAME_COL_X, text_y)
 
 
-def _group_by_floor(people):
+def _group_by_floor(people, moved):
     floors = {}
     for p in people:
         api_floor = p.get("floor")
@@ -52,7 +53,7 @@ def _group_by_floor(people):
         if row is None:
             row = config.FLOOR_MAP.get(api_floor, api_floor)
         name = p.get("name", "?")
-        highlight = (zone == config.HIGHLIGHT_ZONE)
+        highlight = name in moved
         if row not in floors:
             floors[row] = []
         floors[row].append((name, highlight))
