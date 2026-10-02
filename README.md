@@ -32,7 +32,8 @@ Download the latest Pico 2W MicroPython UF2 from [micropython.org](https://micro
 
 ```
 cp config.example.py config.py
-# Edit config.py: fill in WIFI_SSID, WIFI_PASSWORD, API_URL,
+# Edit config.py: fill in WIFI_SSID, WIFI_PASSWORD, API_URL (and FEED_TOKEN if the
+# server requires sign-in),
 # and customize FLOORS / ZONE_MAP / FLOOR_MAP for your home layout.
 ```
 
@@ -73,6 +74,7 @@ People whose `last_seen` is older than `STALE_TIMEOUT_S` seconds are hidden from
 | `WIFI_SSID`           | —       | WiFi network name |
 | `WIFI_PASSWORD`       | —       | WiFi password |
 | `API_URL`             | —       | Presence API endpoint |
+| `FEED_TOKEN`          | `""`    | Optional feed token, sent as `Authorization: Bearer ...`. Only needed if the server requires sign-in to view the map |
 | `RST_PIN` … `DIN_PIN` | 8–13   | SPI GPIO pin assignments |
 | `POLL_INTERVAL_S`     | 60      | Seconds between API polls |
 | `STALE_TIMEOUT_S`     | 300     | Seconds before a person is hidden |

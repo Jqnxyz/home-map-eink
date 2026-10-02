@@ -37,7 +37,9 @@ try:
             utime.sleep(config.POLL_INTERVAL_S)
             continue
 
-        people, result = api.fetch_presence(config.API_URL, config.STALE_TIMEOUT_S)
+        people, result = api.fetch_presence(
+            config.API_URL, config.STALE_TIMEOUT_S, getattr(config, "FEED_TOKEN", None)
+        )
 
         if people is not None:
             if display.update(people):

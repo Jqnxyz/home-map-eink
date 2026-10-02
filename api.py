@@ -9,8 +9,11 @@ except ImportError:
     import json
 
 
-def fetch_presence(url, stale_s=300):
+def fetch_presence(url, stale_s=300, token=None):
     """Fetch presence data from the API.
+
+    token: optional feed token, sent as "Authorization: Bearer <token>". Only needed
+    when the server requires sign-in to view the map; leave it None otherwise.
 
     Returns (people_list, generated_at) on success,
     or (None, error_message) on failure.
@@ -19,7 +22,11 @@ def fetch_presence(url, stale_s=300):
     """
     response = None
     try:
-        response = requests.get(url)
+        headers = {"Authorization": "Bearer " + token} if token else {}
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            # A 401 body is valid JSON without "people"; do not mistake it for an empty house.
+            return (None, "HTTP " + str(response.status_code))
         data = json.loads(response.text)
         raw_people = data.get("people", [])
         generated_at = data.get("generated_at", "")
