@@ -5,6 +5,10 @@ WIFI_PASSWORD = "your-wifi-password"
 # API endpoint — URL that returns JSON presence data
 API_URL = "https://your-api-host/api/presence/current"
 
+# Feed token for servers that require sign-in to view the map (Home Map: Settings >
+# Access > Feed access tokens). Leave empty when the API is public.
+FEED_TOKEN = ""
+
 # SPI pin assignments for Waveshare 2.13" e-Paper HAT (B) V4
 # Default wiring for Pico 2W (GPIO numbers, not physical pin numbers)
 RST_PIN = 12
