@@ -1,90 +1,135 @@
 import config
 import font5x8 as font
 
-# Layout constants
 SCREEN_W = 250
 SCREEN_H = 122
-Y_OFFSET = 6  # framebuffer is 128px tall, display is 122px
-FLOOR_COL_W = 58
-SEP_PAD = 4
-NAME_COL_X = FLOOR_COL_W + SEP_PAD + 1 + SEP_PAD  # pad + vline + pad
-NAME_COL_W = SCREEN_W - NAME_COL_X - 2
-MAX_NAME_CHARS = NAME_COL_W // font.CHAR_W
+Y0 = 8            # framebuffer is 128px tall, display is 122px; leave a margin at the top
+COLS = 3
+ROWS = 2
+GAP = 3
+TILE_W = (SCREEN_W - 4 - GAP * (COLS - 1)) // COLS   # 80
+TILE_H = 57
+MAX_TILES = COLS * ROWS
+BLACK, WHITE = 0x00, 0xFF
 
 
-def render(fb_black, fb_red, people, error=None, moved=None):
-    fb_black.fill(0xFF)
-    fb_red.fill(0xFF)
-
-    y0 = Y_OFFSET
-
-    if error and people is None:
-        font.draw_text(fb_red, 0, y0 + 10, error[:40])
-        return
-
-    floor_people = _group_by_floor(people or [], moved or set())
-
-    row_h = SCREEN_H // len(config.FLOORS)
-
-    for i, floor in enumerate(config.FLOORS):
-        y = y0 + i * row_h
-        text_y = y + (row_h - font.HEIGHT) // 2
-
-        # Floor label
-        font.draw_text(fb_black, 2, text_y, floor)
-
-        # Vertical divider
-        fb_black.vline(FLOOR_COL_W + SEP_PAD, y, row_h, 0x00)
-
-        # Names
-        names = floor_people.get(floor, [])
-        if names:
-            _draw_names(fb_black, fb_red, names, NAME_COL_X, text_y)
+def _cfg(name, default):
+    return getattr(config, name, default)
 
 
-def _group_by_floor(people, moved):
-    floors = {}
+def where(floor, zone):
+    """Short location text for a tile (max 12 chars at the 1x font).
+
+    ZONE_NICKNAMES[(floor, zone)] wins. Otherwise FLOOR_NICKNAMES[floor] + the zone, cut to fit.
+    """
+    nick = _cfg("ZONE_NICKNAMES", {}).get((floor, zone))
+    if nick:
+        return nick[:12]
+    fl = _cfg("FLOOR_NICKNAMES", {}).get(floor, floor or "?")
+    if not zone or zone == floor:
+        return fl[:12]
+    return (fl + " " + zone)[:12]
+
+
+def display_name(name):
+    """PEOPLE_NICKNAMES (case-insensitive on the real name) or the real name; cut to 6 chars at the 2x font."""
+    nicks = _cfg("PEOPLE_NICKNAMES", {})
+    low = name.lower()
+    for real, nick in nicks.items():
+        if real.lower() == low:
+            return nick[:6]
+    return name[:6]
+
+
+def _floor_rank(floor):
+    order = _cfg("FLOOR_ORDER", [])
+    return order.index(floor) if floor in order else 50
+
+
+def select_people(people):
+    """Apply PEOPLE_ONLY / PEOPLE_HIDE / SHOW_AWAY and order by PEOPLE_PRIORITY.
+
+    PEOPLE_PRIORITY only sets the order; it never overrides ONLY/HIDE/SHOW_AWAY (a stale priority person is still away).
+    Order: priority names first (in the order listed, home or away), then everyone else who is
+    home (highest floor first), then everyone else who is away.
+    """
+    only = [n.lower() for n in _cfg("PEOPLE_ONLY", [])]
+    hide = [n.lower() for n in _cfg("PEOPLE_HIDE", [])]
+    prio = [n.lower() for n in _cfg("PEOPLE_PRIORITY", [])]
+    show_away = _cfg("SHOW_AWAY", True)
+
+    out = []
     for p in people:
-        api_floor = p.get("floor")
-        if api_floor is None:
+        key = p["name"].lower()
+        if only and key not in only:
             continue
-        zone = p.get("zone", "")
-        row = config.ZONE_MAP.get((api_floor, zone))
-        if row is None:
-            row = config.FLOOR_MAP.get(api_floor, api_floor)
-        name = p.get("name", "?")
-        highlight = name in moved
-        if row not in floors:
-            floors[row] = []
-        floors[row].append((name, highlight))
-    return floors
+        if key in hide:
+            continue
+        if p.get("away") and not show_away:
+            continue
+        out.append(p)
 
-
-def _draw_names(fb_black, fb_red, names, x, y):
-    # Check if full names fit
-    full_len = sum(len(n) for n, _ in names) + 2 * (len(names) - 1)
-    truncate = full_len > MAX_NAME_CHARS
-
-    remaining = MAX_NAME_CHARS
-    first = True
-
-    for name, highlight in names:
-        disp_name = name[:3] if truncate else name
-        prefix = "" if first else ", "
-        text = prefix + disp_name
-        first = False
-
-        if len(text) > remaining:
-            break
-
-        if highlight and prefix:
-            font.draw_text(fb_black, x, y, prefix)
-            x += len(prefix) * font.CHAR_W
-            font.draw_text(fb_red, x, y, disp_name)
-            x += len(disp_name) * font.CHAR_W
+    def sort_key(p):
+        key = p["name"].lower()
+        rank = prio.index(key) if key in prio else 999
+        if p.get("away"):
+            floor_idx = 99
         else:
-            fb = fb_red if highlight else fb_black
-            font.draw_text(fb, x, y, text)
-            x += len(text) * font.CHAR_W
+            floor_idx = _floor_rank(p["floor"])
+        return (rank, 1 if p.get("away") else 0, floor_idx, key)
 
-        remaining -= len(text)
+    out.sort(key=sort_key)
+    return out
+
+
+def _tile(fb_black, fb_red, x, y, p, moved):
+    away = p.get("away")
+    if moved:
+        fb_red.fill_rect(x, y, TILE_W, TILE_H, BLACK)
+        fb_text, fg = fb_red, WHITE          # erase red where the text goes -> white on red
+    else:
+        fb_black.rect(x, y, TILE_W, TILE_H, BLACK)
+        if away:
+            for d in range(2, TILE_W - 2, 4):   # dashed inner edge reads as "not here"
+                fb_black.pixel(x + d, y + 1, BLACK)
+        fb_text, fg = fb_black, BLACK
+    font.draw_text(fb_text, x + 5, y + 5, display_name(p["name"]), fg, 2)
+    if away:
+        loc = "Away"
+    else:
+        loc = where(p["floor"], p["zone"])
+    font.draw_text(fb_text, x + 5, y + 27, loc, fg)
+    if away and p.get("seen"):
+        font.draw_text(fb_text, x + 5, y + 41, "seen " + p["seen"], fg)
+
+
+def render(fb_black, fb_red, people, moved=None):
+    fb_black.fill(WHITE)
+    fb_red.fill(WHITE)
+    moved = moved or set()
+    shown = select_people(people or [])
+    extra = len(shown) - MAX_TILES
+    if extra > 0:
+        shown = shown[:MAX_TILES - 1]
+    for i, p in enumerate(shown):
+        x = 2 + (i % COLS) * (TILE_W + GAP)
+        y = Y0 + (i // COLS) * (TILE_H + GAP)
+        _tile(fb_black, fb_red, x, y, p, p["name"] in moved)
+    if extra > 0:
+        i = MAX_TILES - 1
+        x = 2 + (i % COLS) * (TILE_W + GAP)
+        y = Y0 + (i // COLS) * (TILE_H + GAP)
+        fb_black.rect(x, y, TILE_W, TILE_H, BLACK)
+        font.draw_text(fb_black, x + 5, y + 20, "+%d" % (extra + 1), BLACK, 3)
+
+
+def render_status(fb_black, fb_red, title, lines):
+    """Failure/status page: red title, then up to 6 detail lines."""
+    fb_black.fill(WHITE)
+    fb_red.fill(WHITE)
+    font.draw_text(fb_red, 6, Y0 + 2, title[:20], BLACK, 2)
+    fb_black.hline(6, Y0 + 22, SCREEN_W - 12, BLACK)
+    y = Y0 + 30
+    for ln in lines[:7]:
+        font.draw_text(fb_black, 6, y, ln[:40])
+        y += 12

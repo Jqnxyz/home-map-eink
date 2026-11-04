@@ -35,20 +35,31 @@ POLL_INTERVAL_S = 60
 # Hide people not seen within this many seconds
 STALE_TIMEOUT_S = 300
 
-# Floor/zone display rows (top to bottom, highest floor first)
-FLOORS = ["4F", "3F", "2F", "1F"]
+# Who to show (case-insensitive names as they appear in Home Map). At most 6 tiles fit; extras show as "+N".
+PEOPLE_PRIORITY = []   # ordering only: listed names come first, in this order, e.g. ["Alice", "Ben"]
+PEOPLE_ONLY = []       # if not empty, show only these people
+PEOPLE_HIDE = []       # never show these people
+# Short display names (max 6 characters at the large font), keyed by the name in Home Map. Case-insensitive.
+PEOPLE_NICKNAMES = {}  # e.g. {"Iman Fandi": "Iman"}
+SHOW_AWAY = True       # show away people as dashed tiles after those who are home
 
-# Map (floor_name, zone_name) -> display row label
-# Keys are the exact strings returned by your API
-ZONE_MAP = {
-    ("Ground Floor", "Living Room"): "1F",
-    ("Second Floor", "Bedroom"): "2F",
+# Minutes to add to UTC for the "seen HH:MM" time on away tiles (e.g. 480 for UTC+8).
+TZ_OFFSET_MIN = 0
+
+# Floors, highest first, as named in Home Map. Sets the order of people on the display.
+FLOOR_ORDER = ["Fourth Floor", "Third Floor", "Second Floor", "Main Floor"]
+
+# Short names for floors. Tiles show "<floor nickname> <zone>" cut to 12 characters when a zone has no nickname below.
+FLOOR_NICKNAMES = {
+    "Fourth Floor": "4F",
+    "Third Floor": "3F",
+    "Second Floor": "2F",
+    "Main Floor": "1F",
 }
 
-# Fallback floor mapping for zones not in ZONE_MAP
-FLOOR_MAP = {
-    "Ground Floor": "1F",
-    "Second Floor": "2F",
-    "Third Floor": "3F",
-    "Fourth Floor": "4F",
+# Short names for specific zones: (floor name, zone name) -> text shown on the tile (max 12 characters).
+# Names are matched with plain quotes (typographic quotes from the server are converted to ' automatically).
+ZONE_NICKNAMES = {
+    ("Main Floor", "Living Room"): "1F Living",
+    ("Second Floor", "Bedroom"): "2F Bedroom",
 }

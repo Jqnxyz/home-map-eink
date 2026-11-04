@@ -106,8 +106,8 @@ _FONT = (
 )
 
 
-def draw_text(fb, x, y, text, color=0x00):
-    """Draw text onto a framebuffer using the 5x8 font."""
+def draw_text(fb, x, y, text, color=0x00, scale=1):
+    """Draw text onto a framebuffer using the 5x8 font (optionally scaled up by an integer)."""
     for ch in text:
         c = ord(ch)
         if c < 32 or c > 126:
@@ -117,8 +117,11 @@ def draw_text(fb, x, y, text, color=0x00):
             byte = _FONT[idx + col]
             for row in range(8):
                 if byte & (1 << row):
-                    fb.pixel(x + col, y + row, color)
-        x += CHAR_W
+                    if scale == 1:
+                        fb.pixel(x + col, y + row, color)
+                    else:
+                        fb.fill_rect(x + col * scale, y + row * scale, scale, scale, color)
+        x += CHAR_W * scale
 
 
 def text_width(text):
