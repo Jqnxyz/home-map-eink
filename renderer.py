@@ -31,6 +31,16 @@ def where(floor, zone):
     return (fl + " " + zone)[:12]
 
 
+def display_name(name):
+    """PEOPLE_NICKNAMES (case-insensitive on the real name) or the real name; cut to 6 chars at the 2x font."""
+    nicks = _cfg("PEOPLE_NICKNAMES", {})
+    low = name.lower()
+    for real, nick in nicks.items():
+        if real.lower() == low:
+            return nick[:6]
+    return name[:6]
+
+
 def _floor_rank(floor):
     order = _cfg("FLOOR_ORDER", [])
     return order.index(floor) if floor in order else 50
@@ -39,6 +49,7 @@ def _floor_rank(floor):
 def select_people(people):
     """Apply PEOPLE_ONLY / PEOPLE_HIDE / SHOW_AWAY and order by PEOPLE_PRIORITY.
 
+    PEOPLE_PRIORITY only sets the order; it never overrides ONLY/HIDE/SHOW_AWAY (a stale priority person is still away).
     Order: priority names first (in the order listed, home or away), then everyone else who is
     home (highest floor first), then everyone else who is away.
     """
@@ -54,7 +65,7 @@ def select_people(people):
             continue
         if key in hide:
             continue
-        if p.get("away") and not show_away and key not in prio:
+        if p.get("away") and not show_away:
             continue
         out.append(p)
 
@@ -82,8 +93,7 @@ def _tile(fb_black, fb_red, x, y, p, moved):
             for d in range(2, TILE_W - 2, 4):   # dashed inner edge reads as "not here"
                 fb_black.pixel(x + d, y + 1, BLACK)
         fb_text, fg = fb_black, BLACK
-    name = p["name"][:6]
-    font.draw_text(fb_text, x + 5, y + 5, name, fg, 2)
+    font.draw_text(fb_text, x + 5, y + 5, display_name(p["name"]), fg, 2)
     if away:
         loc = "Away"
     else:

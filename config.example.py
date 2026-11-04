@@ -36,10 +36,12 @@ POLL_INTERVAL_S = 60
 STALE_TIMEOUT_S = 300
 
 # Who to show (case-insensitive names as they appear in Home Map). At most 6 tiles fit; extras show as "+N".
-PEOPLE_PRIORITY = []   # shown first, in this order (home or away), e.g. ["Alice", "Ben"]
+PEOPLE_PRIORITY = []   # ordering only: listed names come first, in this order, e.g. ["Alice", "Ben"]
 PEOPLE_ONLY = []       # if not empty, show only these people
 PEOPLE_HIDE = []       # never show these people
-SHOW_AWAY = True       # show away people as dashed tiles after those who are home (priority names always show)
+# Short display names (max 6 characters at the large font), keyed by the name in Home Map. Case-insensitive.
+PEOPLE_NICKNAMES = {}  # e.g. {"Iman Fandi": "Iman"}
+SHOW_AWAY = True       # show away people as dashed tiles after those who are home
 
 # Minutes to add to UTC for the "seen HH:MM" time on away tiles (e.g. 480 for UTC+8).
 TZ_OFFSET_MIN = 0

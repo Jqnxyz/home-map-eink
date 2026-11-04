@@ -50,8 +50,16 @@ class T(unittest.TestCase):
     def test_only_and_hide_and_no_away(self):
         cfg.PEOPLE_ONLY = ["alice", "ben", "dan"]; cfg.PEOPLE_HIDE = ["Ben"]; cfg.SHOW_AWAY = False
         self.assertEqual(self.names(), ["Alice"])
-        cfg.PEOPLE_PRIORITY = ["Dan"]   # priority names show even when away is off
-        self.assertEqual(self.names(), ["Dan", "Alice"])
+        cfg.PEOPLE_PRIORITY = ["Dan"]   # priority only orders: away Dan stays hidden when SHOW_AWAY is off
+        self.assertEqual(self.names(), ["Alice"])
+
+    def test_display_name(self):
+        cfg.PEOPLE_NICKNAMES = {"Iman Fandi": "Iman"}
+        try:
+            self.assertEqual(renderer.display_name("iman fandi"), "Iman")
+            self.assertEqual(renderer.display_name("Khai Khai"), "Khai K")   # no nickname: cut to 6
+        finally:
+            del cfg.PEOPLE_NICKNAMES
 
     def test_where(self):
         self.assertEqual(renderer.where("Ground Floor", "Living"), "1F Lounge")          # nickname

@@ -33,7 +33,7 @@ Download the latest Pico 2W MicroPython UF2 from [micropython.org](https://micro
 ```
 cp config.example.py config.py
 # Edit config.py: fill in WIFI_SSID, WIFI_PASSWORD, API_URL,
-# and customize FLOORS / ZONE_MAP / FLOOR_MAP for your home layout.
+# and customize FLOOR_ORDER / FLOOR_NICKNAMES / ZONE_NICKNAMES / PEOPLE_NICKNAMES for your home.
 ```
 
 ### 3. Get a CA certificate and a feed token
@@ -78,7 +78,7 @@ The device boots automatically. Serial output shows WiFi status and fetch errors
 
 ## Display
 
-One tile per person (up to 6, then "+N"): name, floor and zone, and for away people the time last seen. A person who
+One tile per person (up to 6, then "+N"): name (or its nickname), the zone nickname, and for away people the time last seen. A person who
 changed location since the last refresh gets a red tile. There is no footer. A status page (title plus details) appears
 only when refreshes fail: rejected token, repeated errors, no WiFi or a config error.
 
@@ -104,14 +104,15 @@ only when refreshes fail: rejected token, repeated errors, no WiFi or a config e
 | `RST_PIN` … `DIN_PIN` | 8–13   | SPI GPIO pin assignments |
 | `POLL_INTERVAL_S`     | 60      | Seconds between API polls |
 | `STALE_TIMEOUT_S`     | 300     | Seconds before a person is hidden |
-| `PEOPLE_PRIORITY`     | `[]`    | Names shown first, in this order (home or away) |
+| `PEOPLE_PRIORITY`     | `[]`    | Ordering only: these names come first, in this order. Does not override hide/away rules |
 | `PEOPLE_ONLY`         | `[]`    | If set, show only these names |
 | `PEOPLE_HIDE`         | `[]`    | Never show these names |
 | `SHOW_AWAY`           | `True`  | Dashed "Away" tiles after people who are home |
 | `TZ_OFFSET_MIN`       | `0`     | Minutes added to UTC for the away "seen" time |
-| `FLOORS`              | —       | Ordered list of display rows (top→bottom) |
-| `ZONE_MAP`            | —       | `(floor, zone)` → display row label |
-| `FLOOR_MAP`           | —       | Fallback floor → display row label |
+| `PEOPLE_NICKNAMES`    | `{}`    | Real name -> short name on the tile (max 6 chars) |
+| `FLOOR_ORDER`         | —       | Floor names, highest first; sets tile order |
+| `FLOOR_NICKNAMES`     | —       | Floor name -> short label (e.g. "Main Floor" -> "1F") |
+| `ZONE_NICKNAMES`      | —       | `(floor, zone)` -> tile text, max 12 chars; unlisted zones show floor nickname + zone |
 
 ## File Overview
 
