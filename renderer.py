@@ -31,6 +31,14 @@ def where(floor, zone):
     return (fl + " " + zone)[:12]
 
 
+def fmt_time(hm):
+    """'14:05' -> '2:05pm' when CLOCK_12H is on, else unchanged."""
+    if not hm or not _cfg("CLOCK_12H", False):
+        return hm
+    h, m = int(hm[:2]), hm[3:5]
+    return "%d:%s%s" % (h % 12 or 12, m, "pm" if h >= 12 else "am")
+
+
 def display_name(name):
     """PEOPLE_NICKNAMES (case-insensitive on the real name) or the real name; cut to 6 chars at the 2x font."""
     nicks = _cfg("PEOPLE_NICKNAMES", {})
@@ -67,6 +75,9 @@ def select_people(people):
             continue
         if p.get("away") and not show_away:
             continue
+        max_age = _cfg("AWAY_HIDE_AFTER_S", 0)
+        if p.get("away") and max_age and (p.get("age_s") is None or p["age_s"] > max_age):
+            continue   # away for too long (or never seen): drop the tile
         out.append(p)
 
     def sort_key(p):
@@ -82,25 +93,38 @@ def select_people(people):
     return out
 
 
+def _dashed_rect(fb, x, y, w, h, dash=3, gap=3):
+    """Rectangle outline drawn as dashes (the whole border, not a line inside a solid one)."""
+    step = dash + gap
+    for d in range(0, w, step):
+        n = min(dash, w - d)
+        fb.hline(x + d, y, n, BLACK)
+        fb.hline(x + d, y + h - 1, n, BLACK)
+    for d in range(0, h, step):
+        n = min(dash, h - d)
+        fb.fill_rect(x, y + d, 1, n, BLACK)
+        fb.fill_rect(x + w - 1, y + d, 1, n, BLACK)
+
+
 def _tile(fb_black, fb_red, x, y, p, moved):
     away = p.get("away")
     if moved:
         fb_red.fill_rect(x, y, TILE_W, TILE_H, BLACK)
         fb_text, fg = fb_red, WHITE          # erase red where the text goes -> white on red
     else:
-        fb_black.rect(x, y, TILE_W, TILE_H, BLACK)
         if away:
-            for d in range(2, TILE_W - 2, 4):   # dashed inner edge reads as "not here"
-                fb_black.pixel(x + d, y + 1, BLACK)
+            _dashed_rect(fb_black, x, y, TILE_W, TILE_H)
+        else:
+            fb_black.rect(x, y, TILE_W, TILE_H, BLACK)
         fb_text, fg = fb_black, BLACK
-    font.draw_text(fb_text, x + 5, y + 5, display_name(p["name"]), fg, 2)
+    font.draw_text(fb_text, x + 5, y + 5, display_name(p["name"]), fg, 2, _cfg("NAME_FONT", "regular") == "bold")
     if away:
         loc = "Away"
     else:
         loc = where(p["floor"], p["zone"])
     font.draw_text(fb_text, x + 5, y + 27, loc, fg)
     if away and p.get("seen"):
-        font.draw_text(fb_text, x + 5, y + 41, "seen " + p["seen"], fg)
+        font.draw_text(fb_text, x + 5, y + 41, "seen " + fmt_time(p["seen"]), fg)
 
 
 def render(fb_black, fb_red, people, moved=None):

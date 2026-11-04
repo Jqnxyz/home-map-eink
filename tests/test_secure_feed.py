@@ -63,6 +63,7 @@ class T(unittest.TestCase):
         self.assertIsNone(err)
         self.assertEqual([(p["name"], p["away"]) for p in people], [("A", False), ("Old", True), ("Away", True)])
         self.assertEqual(people[1]["seen"], "07:00")
+        self.assertEqual(people[1]["age_s"], 4374)
         self.assertEqual(api._ascii("Zen\u2019s Room"), "Zen's Room")
 
     def test_bad_token_is_auth_not_nobody_home(self):

@@ -2,6 +2,20 @@
 
 How to push firmware or config changes to the device from a Mac. Tested with MicroPython 1.27 on a Pico 2 W.
 
+## Quick way: `./deploy.sh`
+
+```bash
+./deploy.sh            # code + config, restart, show boot log
+./deploy.sh code       # code only
+./deploy.sh config     # config.py only
+./deploy.sh all        # first install: code + config + CA cert
+./deploy.sh status     # just watch the log
+```
+
+It finds the Pico, installs `mpremote` into `~/.venvs/mpremote` if needed, interrupts the running loop, copies, restarts
+and prints the log (retries the copy up to 3 times). Set `PORT=` if auto-detection picks the wrong device, and
+`LOG_SECONDS=0` to skip the log. The manual steps below are what it does.
+
 ## One-time setup
 
 ```bash
@@ -35,6 +49,45 @@ The firmware runs its main loop forever, so `mpremote` cannot get control by def
    mpr resume cp config.py :
    ```
 3. Restart: press the Pico's reset button or replug it. (`mpr resume exec "import machine; machine.soft_reset()"` also works.)
+
+## Copy-paste sequence (what I run)
+
+`pyserial` comes with `mpremote`. Set the two variables once per shell, then run the steps in order.
+
+```bash
+export PORT=/dev/tty.usbmodem21201            # ls /dev/tty.usbmodem*
+export PY=~/.venvs/mpremote/bin                # the venv from the one-time setup
+cd ~/Projects/home-map-eink
+```
+
+1. Stop the running loop (Ctrl-C twice over serial):
+
+```bash
+$PY/python -c "import serial,time; s=serial.Serial('$PORT',115200,timeout=1); s.write(b'\x03\x03'); time.sleep(1); s.close()"
+```
+
+2. Copy files (`resume` stops mpremote from soft-resetting and restarting the loop). Code only, or config only, or both:
+
+```bash
+$PY/mpremote connect $PORT resume cp main.py api.py display.py renderer.py font5x8.py wifi.py secure_http.py epd_2in13b_v4.py boot.py :
+$PY/mpremote connect $PORT resume cp config.py :
+```
+
+3. Restart the program:
+
+```bash
+$PY/mpremote connect $PORT resume exec "import machine; machine.soft_reset()"
+```
+
+4. Watch the log for ~40 s (expect `WiFi up: ...` then `Display refreshed`):
+
+```bash
+$PY/python -c "import serial,time; s=serial.Serial('$PORT',115200,timeout=1); e=time.time()+40; o=b''
+while time.time()<e: o+=s.read(200)
+print(o.decode(errors='replace')[-400:])"
+```
+
+If a step fails with `could not enter raw repl`, repeat step 1 and retry. Add `isrgrootx1.der` to the copy list only the first time.
 
 ## Checking it
 

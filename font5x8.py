@@ -106,8 +106,8 @@ _FONT = (
 )
 
 
-def draw_text(fb, x, y, text, color=0x00, scale=1):
-    """Draw text onto a framebuffer using the 5x8 font (optionally scaled up by an integer)."""
+def draw_text(fb, x, y, text, color=0x00, scale=1, bold=False):
+    """Draw text with the 5x8 font, optionally scaled by an integer and/or bold (use bold with scale >= 2)."""
     for ch in text:
         c = ord(ch)
         if c < 32 or c > 126:
@@ -119,8 +119,12 @@ def draw_text(fb, x, y, text, color=0x00, scale=1):
                 if byte & (1 << row):
                     if scale == 1:
                         fb.pixel(x + col, y + row, color)
+                        if bold:
+                            fb.pixel(x + col + 1, y + row, color)
                     else:
                         fb.fill_rect(x + col * scale, y + row * scale, scale, scale, color)
+                        if bold:  # smear one pixel right; fits in the 2px+ gap between scaled glyphs
+                            fb.fill_rect(x + col * scale + 1, y + row * scale, scale, scale, color)
         x += CHAR_W * scale
 
 
