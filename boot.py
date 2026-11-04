@@ -1,8 +1,10 @@
 import sys
+import utime
+
 try:
-    import main
+    import main  # runs the loop; only returns/raises on a fatal error
 except Exception as e:
     sys.print_exception(e)
-    # Keep the error visible
-    import utime
-    utime.sleep(30)
+    utime.sleep(10)
+    import machine
+    machine.reset()  # never sit idle after a crash

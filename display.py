@@ -22,6 +22,14 @@ def _ensure_ready():
         _inited = True
 
 
+def _refresh():
+    """Push the framebuffers, then put the panel to sleep (less ghosting/wear, no idle draw)."""
+    global _inited
+    _epd.display()
+    _epd.sleep()
+    _inited = False  # next _ensure_ready() re-inits (hardware reset wakes the panel)
+
+
 def _make_snapshot(people):
     if people is None:
         return None
@@ -53,7 +61,7 @@ def update(people, error=None):
     _last_snapshot = snap
     _ensure_ready()
     renderer.render(_epd.fb_black, _epd.fb_red, people, error, moved)
-    _epd.display()
+    _refresh()
     return True
 
 
@@ -67,4 +75,4 @@ def show_message(line1, line2=""):
     font.draw_text(_epd.fb_black, 10, 40, line1)
     if line2:
         font.draw_text(_epd.fb_black, 10, 56, line2)
-    _epd.display()
+    _refresh()

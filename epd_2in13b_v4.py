@@ -94,16 +94,29 @@ class EPD:
 
         self._wait()
 
+    def _data_buf(self, buf):
+        self.dc_pin.value(1)
+        self.cs_pin.value(0)
+        self.spi.write(buf)
+        self.cs_pin.value(1)
+
+    def _send_plane(self, cmd, buf):
+        # Same byte order as before (column groups descending), but one SPI write per group
+        # instead of one per byte: ~250x fewer transactions.
+        self._cmd(cmd)
+        mv = memoryview(buf)
+        h = self.epd_h
+        for j in range(self.epd_w // 8 - 1, -1, -1):
+            self._data_buf(mv[j * h:(j + 1) * h])
+
     def display(self):
-        self._cmd(0x24)
-        for j in range(self.epd_w // 8 - 1, -1, -1):
-            for i in range(self.epd_h):
-                self._data(self.buf_black[i + j * self.epd_h])
-
-        self._cmd(0x26)
-        for j in range(self.epd_w // 8 - 1, -1, -1):
-            for i in range(self.epd_h):
-                self._data(self.buf_red[i + j * self.epd_h])
-
+        self._send_plane(0x24, self.buf_black)
+        self._send_plane(0x26, self.buf_red)
         self._cmd(0x20)
         self._wait()
+
+    def sleep(self):
+        """Deep sleep: the panel holds the image with no power. init() wakes it via hardware reset."""
+        self._cmd(0x10)
+        self._data(0x01)
+        utime.sleep_ms(100)
