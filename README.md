@@ -36,35 +36,54 @@ cp config.example.py config.py
 # and customize FLOORS / ZONE_MAP / FLOOR_MAP for your home layout.
 ```
 
-### 3. Upload files
+### 3. Get a CA certificate and a feed token
 
-Using `mpremote`, `rshell`, or Thonny — upload all `.py` files to the root of the device:
+The display talks to the server over **HTTPS with certificate verification** and authenticates with a
+read-only, revocable **feed token** sent in an `Authorization: Bearer` header (never in the URL).
+
+1. On the server: Settings > Access > Feed access tokens > create one (leave "Allow the token in the URL" **unticked**).
+2. Download the root CA of your server's certificate chain (Let's Encrypt shown):
 
 ```
-mpremote connect /dev/tty.usbmodem* cp boot.py main.py api.py config.py \
-  display.py renderer.py wifi.py epd_2in13b_v4.py font5x8.py :
+curl -o isrgrootx1.der https://letsencrypt.org/certs/isrgrootx1.der
+```
+3. Put the token in `FEED_TOKEN` and the file name in `CA_CERT_FILE` in `config.py`.
+
+The firmware fails closed: it will not send a token over `http://`, over unverified TLS, or in a URL, and it never
+follows redirects. A rejected token shows "Token rejected" on the panel instead of an empty map.
+
+### 4. Upload files
+
+```
+mpremote connect /dev/tty.usbmodem* cp boot.py main.py api.py secure_http.py config.py \
+  display.py renderer.py wifi.py epd_2in13b_v4.py font5x8.py isrgrootx1.der :
 ```
 
-### 4. Run
+### 5. Run
 
-The device boots automatically and starts the main loop. Check serial output for WiFi connection status and errors.
+The device boots automatically. Serial output shows WiFi status and fetch errors.
 
 ## API Contract
 
-`API_URL` must return a JSON array in this shape:
+`GET API_URL` returns (extra fields are ignored):
 
 ```json
-[
-  {
-    "name": "Alice",
-    "floor": "Second Floor",
-    "zone": "Bedroom",
-    "last_seen": "2026-03-01T12:00:00Z"
-  }
-]
+{"generated_at": "2026-03-01T12:00:01Z",
+ "people": [{"name": "Alice", "location": {"floor_name": "Second Floor", "zone_name": "Bedroom"},
+             "last_seen_at": "2026-03-01T12:00:00Z"}]}
 ```
 
-People whose `last_seen` is older than `STALE_TIMEOUT_S` seconds are hidden from the display.
+`location: null` (away) is skipped; people older than `STALE_TIMEOUT_S` are hidden. Any 200 that is not this shape
+(captive portal, wrong URL) is an error, not "nobody home".
+
+## Behaviour
+
+- Keeps the last good picture on a transient failure; shows "Offline" after 3 failures in a row, and only
+  refreshes the panel when the message changes (e-ink wear).
+- Backs off on repeated errors (up to 5x `POLL_INTERVAL_S`), honours `Retry-After` on 429, and slows to 5 min on a
+  rejected token (the server rate-limits bad tokens).
+- Syncs the clock over NTP (needed for certificate validity), puts the panel into deep sleep after each refresh,
+  and resets itself after a crash or 30 failures in a row.
 
 ## Configuration Reference
 
@@ -72,7 +91,10 @@ People whose `last_seen` is older than `STALE_TIMEOUT_S` seconds are hidden from
 |-----------------------|---------|-------------|
 | `WIFI_SSID`           | —       | WiFi network name |
 | `WIFI_PASSWORD`       | —       | WiFi password |
-| `API_URL`             | —       | Presence API endpoint |
+| `API_URL`             | —       | Presence endpoint, `https://` only |
+| `FEED_TOKEN`          | `""`    | Bearer token (leave empty if the map is public) |
+| `CA_CERT_FILE`        | —       | CA certificate (DER/PEM) used to verify the server |
+| `ALLOW_INSECURE`      | `False` | Lab-only: allow http / unverified TLS |
 | `RST_PIN` … `DIN_PIN` | 8–13   | SPI GPIO pin assignments |
 | `POLL_INTERVAL_S`     | 60      | Seconds between API polls |
 | `STALE_TIMEOUT_S`     | 300     | Seconds before a person is hidden |
@@ -86,7 +108,8 @@ People whose `last_seen` is older than `STALE_TIMEOUT_S` seconds are hidden from
 |---------------------|---------|
 | `boot.py`           | MicroPython entry point; runs main, shows errors on display |
 | `main.py`           | Main loop: WiFi connect, poll API, render |
-| `api.py`            | Fetch & parse presence JSON |
+| `api.py`            | Fetch, classify errors, parse presence JSON |
+| `secure_http.py`    | Verified-TLS HTTPS GET with bearer header |
 | `display.py`        | Change detection and movement tracking |
 | `renderer.py`       | Layout & draw to e-ink framebuffer |
 | `wifi.py`           | WiFi connect / reconnect |
@@ -94,3 +117,4 @@ People whose `last_seen` is older than `STALE_TIMEOUT_S` seconds are hidden from
 | `font5x8.py`        | 5×8 bitmap font |
 | `config.example.py` | Config template (safe to commit) |
 | `test_boot.py`      | Standalone display hardware test |
+| `tests/`            | Host-side tests: `python3 -m unittest discover -s tests` |

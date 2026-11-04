@@ -2,38 +2,46 @@ import network
 import utime
 
 
-def connect(ssid, password, timeout=15):
-    """Connect to WiFi. Returns True on success, False on timeout."""
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    wlan.connect(ssid, password)
-
+def _wait(wlan, timeout):
     start = utime.time()
     while not wlan.isconnected():
         if utime.time() - start > timeout:
             return False
         utime.sleep_ms(500)
-    print("WiFi connected:", wlan.ifconfig()[0])
     return True
 
 
-def ensure_connected(ssid, password):
-    """Check WiFi and reconnect if dropped. Returns True if connected."""
+def connect(ssid, password, timeout=20):
+    """Connect to WiFi. Returns True on success."""
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(ssid, password)
+    ok = _wait(wlan, timeout)
+    if ok:
+        print("WiFi up:", wlan.ifconfig()[0])
+    return ok
+
+
+def ensure_connected(ssid, password, timeout=20):
     wlan = network.WLAN(network.STA_IF)
     if wlan.isconnected():
         return True
-
-    print("WiFi disconnected, reconnecting...")
+    print("WiFi lost, reconnecting")
     wlan.active(False)
     utime.sleep_ms(500)
-    wlan.active(True)
-    wlan.connect(ssid, password)
+    return connect(ssid, password, timeout)
 
-    start = utime.time()
-    while not wlan.isconnected():
-        if utime.time() - start > 15:
-            print("WiFi reconnect failed")
-            return False
-        utime.sleep_ms(500)
-    print("WiFi reconnected:", wlan.ifconfig()[0])
-    return True
+
+def sync_time():
+    """Set the RTC from NTP. TLS certificate validity checks need a sane clock. Returns True on success."""
+    try:
+        import ntptime
+        for _ in range(3):
+            try:
+                ntptime.settime()
+                return True
+            except OSError:
+                utime.sleep(2)
+    except ImportError:
+        pass
+    return False
