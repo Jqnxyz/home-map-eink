@@ -108,7 +108,10 @@ only when refreshes fail: rejected token, repeated errors, no WiFi or a config e
 | `PEOPLE_ONLY`         | `[]`    | If set, show only these names |
 | `PEOPLE_HIDE`         | `[]`    | Never show these names |
 | `SHOW_AWAY`           | `True`  | Dashed "Away" tiles after people who are home |
+| `AWAY_HIDE_AFTER_S`   | `0`     | Drop away people not seen for this many seconds (0 = keep) |
 | `TZ_OFFSET_MIN`       | `0`     | Minutes added to UTC for the away "seen" time |
+| `CLOCK_12H`           | `False` | Show times as 2:05pm instead of 14:05 |
+| `NAME_FONT`           | `"regular"` | `"regular"` or `"bold"` names on tiles |
 | `PEOPLE_NICKNAMES`    | `{}`    | Real name -> short name on the tile (max 6 chars) |
 | `FLOOR_ORDER`         | —       | Floor names, highest first; sets tile order |
 | `FLOOR_NICKNAMES`     | —       | Floor name -> short label (e.g. "Main Floor" -> "1F") |

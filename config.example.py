@@ -35,12 +35,19 @@ POLL_INTERVAL_S = 60
 # Hide people not seen within this many seconds
 STALE_TIMEOUT_S = 300
 
+# 12-hour clock for the away "seen" time (2:05pm instead of 14:05).
+CLOCK_12H = False
+
+# Font for names on tiles: "regular" or "bold". (Only the bundled 5x8 bitmap font is available.)
+NAME_FONT = "regular"
+
 # Who to show (case-insensitive names as they appear in Home Map). At most 6 tiles fit; extras show as "+N".
 PEOPLE_PRIORITY = []   # ordering only: listed names come first, in this order, e.g. ["Alice", "Ben"]
 PEOPLE_ONLY = []       # if not empty, show only these people
 PEOPLE_HIDE = []       # never show these people
 # Short display names (max 6 characters at the large font), keyed by the name in Home Map. Case-insensitive.
 PEOPLE_NICKNAMES = {}  # e.g. {"Iman Fandi": "Iman"}
+AWAY_HIDE_AFTER_S = 86400  # hide away people not seen for this long (0 = never hide); 86400 = 24 h
 SHOW_AWAY = True       # show away people as dashed tiles after those who are home
 
 # Minutes to add to UTC for the "seen HH:MM" time on away tiles (e.g. 480 for UTC+8).

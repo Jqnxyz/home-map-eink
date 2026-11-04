@@ -25,17 +25,17 @@ sys.modules["config"] = cfg
 import renderer  # noqa: E402
 
 
-def P(name, floor=None, zone=None, away=False, seen=None):
-    return {"name": name, "floor": floor, "zone": zone, "away": away or floor is None, "seen": seen}
+def P(name, floor=None, zone=None, away=False, seen=None, age=None):
+    return {"name": name, "floor": floor, "zone": zone, "away": away or floor is None, "seen": seen, "age_s": age}
 
 
-PEOPLE = [P("Ben", "Ground Floor", "Living"), P("Alice", "Second Floor", "Bedroom"), P("Dan", seen="11:30"),
+PEOPLE = [P("Ben", "Ground Floor", "Living"), P("Alice", "Second Floor", "Bedroom"), P("Dan", seen="11:30", age=3600),
           P("Eli", "Third Floor", "Study"), P("Cara", "Ground Floor", "Kitchen")]
 
 
 class T(unittest.TestCase):
     def setUp(self):
-        for k in ("PEOPLE_PRIORITY", "PEOPLE_ONLY", "PEOPLE_HIDE", "SHOW_AWAY"):
+        for k in ("AWAY_HIDE_AFTER_S", "PEOPLE_PRIORITY", "PEOPLE_ONLY", "PEOPLE_HIDE", "SHOW_AWAY"):
             if hasattr(cfg, k): delattr(cfg, k)
 
     def names(self): return [p["name"] for p in renderer.select_people(PEOPLE)]
@@ -61,6 +61,24 @@ class T(unittest.TestCase):
         finally:
             del cfg.PEOPLE_NICKNAMES
 
+    def test_away_hidden_after_max_age(self):
+        cfg.AWAY_HIDE_AFTER_S = 7200
+        people = PEOPLE + [P("Old", seen="01:00", age=90000), P("Never")]
+        got = [p["name"] for p in renderer.select_people(people)]
+        self.assertIn("Dan", got)                                  # away 1h: kept
+        self.assertNotIn("Old", got); self.assertNotIn("Never", got)  # away a day / never seen: dropped
+        self.assertIn("Ben", got)                                  # home people never filtered by age
+
+    def test_fmt_time(self):
+        self.assertEqual(renderer.fmt_time("14:05"), "14:05")
+        cfg.CLOCK_12H = True
+        try:
+            for a, b in (("00:00", "12:00am"), ("09:30", "9:30am"), ("12:00", "12:00pm"), ("23:59", "11:59pm")):
+                self.assertEqual(renderer.fmt_time(a), b)
+            self.assertIsNone(renderer.fmt_time(None))
+        finally:
+            del cfg.CLOCK_12H
+
     def test_where(self):
         self.assertEqual(renderer.where("Ground Floor", "Living"), "1F Lounge")          # nickname
         self.assertEqual(renderer.where("Third Floor", "Study"), "3F Study")             # floor nick + zone
@@ -70,7 +88,11 @@ class T(unittest.TestCase):
     def test_renders_overflow_and_status(self):
         many = PEOPLE + [P("Fay", "Ground Floor", "Hall"), P("Gus", "Ground Floor", "Hall")]
         b, r = FB(), FB()
-        renderer.render(b, r, many, {"Alice"})
+        cfg.NAME_FONT = "bold"
+        try:
+            renderer.render(b, r, many, {"Alice"})
+        finally:
+            del cfg.NAME_FONT
         self.assertTrue(any(c == 0 for c in r.p.values()))   # red tile for the mover
         renderer.render_status(b, r, "Token rejected", ["a", "b"])
 

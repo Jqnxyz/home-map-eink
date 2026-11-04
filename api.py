@@ -52,16 +52,20 @@ def fetch_presence(url, stale_s=300, token=None, ca_der=None, allow_insecure=Fal
         loc = p.get("location")
         last_seen = p.get("last_seen_at")
         away = loc is None
-        if not away and last_seen and now_epoch:
+        age = None
+        if last_seen and now_epoch:
             seen_epoch = _parse_iso(last_seen)
-            if seen_epoch and (now_epoch - seen_epoch) >= stale_s:
-                away = True
+            if seen_epoch:
+                age = now_epoch - seen_epoch
+        if not away and age is not None and age >= stale_s:
+            away = True
         people.append({
             "name": _ascii(p.get("name", "?")),
             "floor": None if away else _ascii(loc.get("floor_name")),
             "zone": None if away else _ascii(loc.get("zone_name")),
             "away": away,
             "seen": _local_hm(last_seen, tz_min),
+            "age_s": age,
         })
     return (people, None)
 
