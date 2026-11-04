@@ -76,6 +76,12 @@ The device boots automatically. Serial output shows WiFi status and fetch errors
 `location: null` (away) is skipped; people older than `STALE_TIMEOUT_S` are hidden. Any 200 that is not this shape
 (captive portal, wrong URL) is an error, not "nobody home".
 
+## Display
+
+One tile per person (up to 6, then "+N"): name, floor and zone, and for away people the time last seen. A person who
+changed location since the last refresh gets a red tile. There is no footer. A status page (title plus details) appears
+only when refreshes fail: rejected token, repeated errors, no WiFi or a config error.
+
 ## Behaviour
 
 - Keeps the last good picture on a transient failure; shows "Offline" after 3 failures in a row, and only
@@ -98,6 +104,11 @@ The device boots automatically. Serial output shows WiFi status and fetch errors
 | `RST_PIN` … `DIN_PIN` | 8–13   | SPI GPIO pin assignments |
 | `POLL_INTERVAL_S`     | 60      | Seconds between API polls |
 | `STALE_TIMEOUT_S`     | 300     | Seconds before a person is hidden |
+| `PEOPLE_PRIORITY`     | `[]`    | Names shown first, in this order (home or away) |
+| `PEOPLE_ONLY`         | `[]`    | If set, show only these names |
+| `PEOPLE_HIDE`         | `[]`    | Never show these names |
+| `SHOW_AWAY`           | `True`  | Dashed "Away" tiles after people who are home |
+| `TZ_OFFSET_MIN`       | `0`     | Minutes added to UTC for the away "seen" time |
 | `FLOORS`              | —       | Ordered list of display rows (top→bottom) |
 | `ZONE_MAP`            | —       | `(floor, zone)` → display row label |
 | `FLOOR_MAP`           | —       | Fallback floor → display row label |

@@ -58,10 +58,12 @@ class T(unittest.TestCase):
 
     def url(self): return "https://localhost:%d/api/presence/current" % self.port
 
-    def test_ok_filters_stale_and_away(self):
+    def test_ok_marks_stale_and_away(self):
         people, err = api.fetch_presence(self.url(), 300, TOKEN, self.ca)
         self.assertIsNone(err)
-        self.assertEqual([p["name"] for p in people], ["A"])
+        self.assertEqual([(p["name"], p["away"]) for p in people], [("A", False), ("Old", True), ("Away", True)])
+        self.assertEqual(people[1]["seen"], "07:00")
+        self.assertEqual(api._ascii("Zen\u2019s Room"), "Zen's Room")
 
     def test_bad_token_is_auth_not_nobody_home(self):
         people, err = api.fetch_presence(self.url(), 300, "wrong", self.ca)

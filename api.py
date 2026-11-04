@@ -22,7 +22,7 @@ class FetchError:
         return self.text
 
 
-def fetch_presence(url, stale_s=300, token=None, ca_der=None, allow_insecure=False):
+def fetch_presence(url, stale_s=300, token=None, ca_der=None, allow_insecure=False, tz_min=0):
     """Fetch presence. Returns (people, None) or (None, FetchError)."""
     try:
         status, retry, body = secure_http.get(url, token, ca_der, allow_insecure)
@@ -50,19 +50,38 @@ def fetch_presence(url, stale_s=300, token=None, ca_der=None, allow_insecure=Fal
     people = []
     for p in raw_people:
         loc = p.get("location")
-        if loc is None:
-            continue
         last_seen = p.get("last_seen_at")
-        if last_seen and now_epoch:
+        away = loc is None
+        if not away and last_seen and now_epoch:
             seen_epoch = _parse_iso(last_seen)
             if seen_epoch and (now_epoch - seen_epoch) >= stale_s:
-                continue
+                away = True
         people.append({
-            "name": p.get("name", "?"),
-            "floor": loc.get("floor_name"),
-            "zone": loc.get("zone_name"),
+            "name": _ascii(p.get("name", "?")),
+            "floor": None if away else _ascii(loc.get("floor_name")),
+            "zone": None if away else _ascii(loc.get("zone_name")),
+            "away": away,
+            "seen": _local_hm(last_seen, tz_min),
         })
     return (people, None)
+
+
+def _ascii(s):
+    """The 5x8 font is ASCII-only: turn typographic quotes/dashes into plain ones so config keys can be plain too."""
+    if not s:
+        return s
+    for a, b in (("\u2019", "'"), ("\u2018", "'"), ("\u201c", '"'), ("\u201d", '"'), ("\u2013", "-"), ("\u2014", "-")):
+        s = s.replace(a, b)
+    return s
+
+
+def _local_hm(iso, tz_min):
+    """'2026-03-01T08:12:54Z' -> 'HH:MM' shifted by tz_min minutes. None if unparseable."""
+    try:
+        m = (int(iso[11:13]) * 60 + int(iso[14:16]) + tz_min) % 1440
+        return "%02d:%02d" % (m // 60, m % 60)
+    except Exception:
+        return None
 
 
 def _parse_iso(s):

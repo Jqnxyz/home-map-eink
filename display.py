@@ -36,7 +36,7 @@ def _make_snapshot(people):
     result = {}
     for p in people:
         name = p.get("name", "?")
-        result[name] = (p.get("floor"), p.get("zone"))
+        result[name] = (p.get("floor"), p.get("zone"), bool(p.get("away")))
     return result
 
 
@@ -47,12 +47,12 @@ def _find_moved(old_snap, new_snap):
     moved = set()
     for name, pos in new_snap.items():
         old_pos = old_snap.get(name)
-        if old_pos is not None and old_pos != pos:
+        if old_pos is not None and old_pos != pos and not pos[2]:
             moved.add(name)
     return moved
 
 
-def update(people, error=None):
+def update(people):
     global _last_snapshot
     snap = _make_snapshot(people)
     if snap is not None and snap == _last_snapshot:
@@ -60,19 +60,15 @@ def update(people, error=None):
     moved = _find_moved(_last_snapshot, snap) if snap else set()
     _last_snapshot = snap
     _ensure_ready()
-    renderer.render(_epd.fb_black, _epd.fb_red, people, error, moved)
+    renderer.render(_epd.fb_black, _epd.fb_red, people, moved)
     _refresh()
     return True
 
 
-def show_message(line1, line2=""):
+def show_status(title, lines):
+    """Status page: only used when a refresh fails (or the device can't start)."""
     global _last_snapshot
     _last_snapshot = None
     _ensure_ready()
-    _epd.fb_black.fill(0xFF)
-    _epd.fb_red.fill(0xFF)
-    import font5x8 as font
-    font.draw_text(_epd.fb_black, 10, 40, line1)
-    if line2:
-        font.draw_text(_epd.fb_black, 10, 56, line2)
+    renderer.render_status(_epd.fb_black, _epd.fb_red, title, lines)
     _refresh()

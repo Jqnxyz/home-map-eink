@@ -54,10 +54,25 @@ def _check_config():
     return None
 
 
+def _title(err):
+    return {"auth": "Token rejected", "rate": "Rate limited"}.get(err.kind, "Refresh failed")
+
+
+def _lines(err, failures, delay, token):
+    return [
+        err.text,
+        "Failures in a row: %d" % failures,
+        "Token: " + ("set" if token else "NOT SET"),
+        "Server: " + config.API_URL.split("/")[2][:30],
+        "Next try in %ds" % delay,
+        "Recreate token in Settings" if err.kind == "auth" else "Check WiFi / server",
+    ]
+
+
 def run():
     bad = _check_config()
     if bad:
-        display.show_message("Config error", bad)
+        display.show_status("Config error", [bad, "Fix config.py and re-upload"])
         _sleep(3600)
         machine.reset()
 
@@ -70,7 +85,7 @@ def run():
     time_ok = False
 
     if not wifi.connect(config.WIFI_SSID, config.WIFI_PASSWORD):
-        display.show_message("No WiFi", "Check credentials")
+        display.show_status("No WiFi", ["SSID: " + config.WIFI_SSID[:30], "Check WIFI_SSID / password", "Retrying in 30s"])
         _sleep(30)
         machine.reset()
 
@@ -78,11 +93,15 @@ def run():
         delay = poll
         if not wifi.ensure_connected(config.WIFI_SSID, config.WIFI_PASSWORD):
             failures += 1
+            if failures >= 3 and shown != ("wifi", ""):
+                display.show_status("No WiFi", ["SSID: " + config.WIFI_SSID[:30], "Failures in a row: %d" % failures,
+                                                "Next try in %ds" % (poll * min(failures, 5))])
+                shown = ("wifi", "")
         else:
             if not time_ok:
                 time_ok = wifi.sync_time()  # cert validity needs a real clock
             people, err = api.fetch_presence(
-                config.API_URL, config.STALE_TIMEOUT_S, token, ca, insecure)
+                config.API_URL, config.STALE_TIMEOUT_S, token, ca, insecure, _cfg("TZ_OFFSET_MIN", 0))
             if people is not None:
                 failures = 0
                 shown = None
@@ -94,18 +113,13 @@ def run():
                 if err.kind == "rate":
                     delay = max(poll, err.retry_after or 300)
                 elif err.kind == "auth":
-                    delay = 300   # not going to fix itself; do not hammer (server rate-limits bad tokens)
-                    msg = ("Token rejected", "Recreate feed token")
-                    if shown != msg:
-                        display.show_message(*msg)
-                        shown = msg
-                elif failures >= 3:
-                    msg = ("Offline", err.text[:20])
-                    if shown != msg:
-                        display.show_message(*msg)
-                        shown = msg
-                # fewer than 3 blips: keep the last good picture on the panel
-
+                    delay = 300   # will not fix itself; do not hammer (server rate-limits bad tokens)
+                if err.kind == "auth" or failures >= 3:
+                    # Status page only when refreshes are failing. A blip or two keeps the last good picture.
+                    sig = (err.kind, err.text)
+                    if shown != sig:
+                        display.show_status(_title(err), _lines(err, failures, delay, token))
+                        shown = sig
         if failures >= 30:
             machine.reset()   # last resort for a wedged network stack
         # back off on repeated transport failures (max 5x poll)
